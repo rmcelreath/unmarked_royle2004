@@ -1,3 +1,5 @@
+// partial pooling version
+// pools among population for estimating detection rates and population sizes
 data{
     int n; // num surveys
     int M; // num populations
@@ -15,10 +17,17 @@ transformed data{
 parameters{
     vector<lower=0>[M] lambda;
     vector<lower=0,upper=1>[M] p;
+    real<lower=0> lambda_mean;
+    real<lower=0,upper=1> p_mean;
+    real<lower=0> p_theta;
 }
 model{
-    for ( i in 1:M) lambda[i] ~ normal(50,20) T[0,];
-    p ~ beta(1,1);
+    lambda ~ exponential( 1.0/lambda_mean );
+    lambda_mean ~ normal(50,20) T[0,];
+    p ~ beta( p_mean*p_theta , (1-p_mean)*p_theta );
+    p_mean ~ beta(1,1);
+    p_theta ~ exponential(1);
+
     for ( m in 1:M ) { // loop over populations
         vector[Nmax-Ymax[m]+1] terms;
         int l;
@@ -41,7 +50,6 @@ generated quantities{
     vector[M] N_est;
     for ( m in 1:M ) { // loop over populations
         vector[Nmax-Ymax[m]+1] terms;
-        real Z;
         int l;
         l = 0;
         // marginalize over pop size Ni
@@ -57,9 +65,6 @@ generated quantities{
         }//Ni
         terms = exp(terms);
         terms = terms / sum(terms);
-        if ( is_nan(sum(terms)) ) {
-            print(m);
-        }
         N_est[m] = categorical_rng( terms ) + Ymax[m] - 1;
     }//m
 }
