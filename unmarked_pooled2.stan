@@ -1,3 +1,6 @@
+// partial pooling version
+// this one adds correlation between detection p and lambda rate
+// pools among population for estimating detection rates and population sizes
 data{
     int n; // num surveys
     int M; // num populations
@@ -13,12 +16,30 @@ transformed data{
     for ( i in 1:M ) print(Ymax[i]);
 }
 parameters{
+    vector[2] bmeans;
+    matrix[2,M] zsite;
+    vector<lower=0>[2] sigma_site;
+    cholesky_factor_corr[2] L_Rho_site;
+}
+transformed parameters{
     vector<lower=0>[M] lambda;
     vector<lower=0,upper=1>[M] p;
+    {
+        matrix[M,2] bsite;
+        bsite = (diag_pre_multiply(sigma_site,L_Rho_site) * zsite)';
+        for ( m in 1:M ) {
+            lambda[m] = exp(bmeans[1] + bsite[m,1]);
+            p[m] = inv_logit(bmeans[2] + bsite[m,2]);
+        }
+    }
 }
 model{
-    for ( i in 1:M) lambda[i] ~ normal(50,20) T[0,];
-    p ~ beta(1,1);
+    bmeans[1] ~ normal(4,10);
+    bmeans[2] ~ normal(0,4);
+    to_vector(zsite) ~ normal(0,1);
+    L_Rho_site ~ lkj_corr_cholesky(4);
+    sigma_site ~ exponential(1);
+
     for ( m in 1:M ) { // loop over populations
         vector[Nmax-Ymax[m]+1] terms;
         int l;

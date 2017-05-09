@@ -50,6 +50,7 @@ generated quantities{
     vector[M] N_est;
     for ( m in 1:M ) { // loop over populations
         vector[Nmax-Ymax[m]+1] terms;
+        real Z;
         int l;
         l = 0;
         // marginalize over pop size Ni
@@ -63,8 +64,8 @@ generated quantities{
                     terms[l] = terms[l] + binomial_lpmf( Y[i] | Ni , p[m] );
             }//i
         }//Ni
-        terms = exp(terms);
-        terms = terms / sum(terms);
+        Z = log_sum_exp(terms);
+        terms = exp(terms - Z);
         N_est[m] = categorical_rng( terms ) + Ymax[m] - 1;
     }//m
 }
